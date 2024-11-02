@@ -70,6 +70,7 @@ async def get_initial_state(
 def get_initial_state_sync(
     url: str, credential: Credential = Credential()
 ) -> Union[dict, InitialDataType]:
+    print(credential.get_cookies())
     """
     同步获取初始化信息
 

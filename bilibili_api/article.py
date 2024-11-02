@@ -169,6 +169,7 @@ class Article:
 
             credential (Credential | None, optional): 凭据. Defaults to None.
         """
+        print(credential.get_cookies())
         self.__children: List[Node] = []
         self.credential: Credential = (
             credential if credential is not None else Credential()
@@ -183,7 +184,10 @@ class Article:
             self.__type = ArticleType.SPECIAL_ARTICLE
             self.__is_note = cache_pool.article_is_note[self.__cvid]
         else:
-            resp = get_initial_state_sync(f"https://www.bilibili.com/read/cv{self.__cvid}")[0]
+            resp = get_initial_state_sync(
+                f"https://www.bilibili.com/read/cv{self.__cvid}", 
+                credential=self.credential
+            )[0]
             self.__dyn_id = int(resp["readInfo"]["dyn_id_str"])
             self.__type = ArticleType(resp["readInfo"]["template_id"])
             self.__is_note = resp["readInfo"]["type"] == 2
