@@ -185,8 +185,8 @@ class Article:
             self.__is_note = cache_pool.article_is_note[self.__cvid]
         else:
             resp = get_initial_state_sync(
-                f"https://www.bilibili.com/read/cv{self.__cvid}", 
-                credential=self.credential
+                f"https://www.bilibili.com/read/cv{self.__cvid}",
+                credential=self.credential,
             )[0]
             self.__dyn_id = int(resp["readInfo"]["dyn_id_str"])
             self.__type = ArticleType(resp["readInfo"]["template_id"])
@@ -229,9 +229,7 @@ class Article:
         Returns:
             Note: 笔记类
         """
-        raise_for_statement(
-            self.is_note(), "仅支持公开笔记"
-        )
+        raise_for_statement(self.is_note(), "仅支持公开笔记")
         return note.Note(
             cvid=self.__cvid, note_type=note.NoteType.PUBLIC, credential=self.credential
         )
@@ -240,9 +238,7 @@ class Article:
         """
         对于 SPECIAL_ARTICLE，将其转为图文
         """
-        raise_for_statement(
-            self.__type != ArticleType.ARTICLE, "仅支持图文专栏"
-        )
+        raise_for_statement(self.__type != ArticleType.ARTICLE, "仅支持图文专栏")
         cache_pool.opus_type[self.__dyn_id] = 1
         cache_pool.opus_is_note[self.__dyn_id] = self.is_note()
         cache_pool.opus_cvid[self.__dyn_id] = self.__cvid
@@ -381,7 +377,7 @@ class Article:
                             node.children = await parse(e)
                         else:
                             if e.text != "":
-                                node_list += (await parse(e))
+                                node_list += await parse(e)
 
                 elif e.name == "blockquote":
                     # 引用块
@@ -652,7 +648,10 @@ class Article:
             dict: 调用 API 返回的结果
         """
         return (
-            await get_initial_state(f"https://www.bilibili.com/read/cv{self.__cvid}")
+            await get_initial_state(
+                f"https://www.bilibili.com/read/cv{self.__cvid}",
+                credential=self.credential,
+            )
         )[0]
 
     async def set_like(self, status: bool = True) -> dict:
@@ -1045,9 +1044,7 @@ class ComicCardNode(Node):
         self.mcid = 0
 
     def markdown(self):
-        return (
-            f"[漫画 mc{self.mcid}](https://manga.bilibili.com/m/detail/mc{self.mcid})\n\n"
-        )
+        return f"[漫画 mc{self.mcid}](https://manga.bilibili.com/m/detail/mc{self.mcid})\n\n"
 
     def json(self):
         return {"type": "ComicCardNode", "mcid": self.mcid}
