@@ -3,9 +3,11 @@ bilibili_api.utils.initial_state
 
 用于获取页码的初始化信息
 """
+
 import re
 import json
 import httpx
+import time  # 添加这个导入
 from enum import Enum
 from typing import Union
 
@@ -14,6 +16,8 @@ from .short import get_real_url
 from .credential import Credential
 from .network import get_session
 from typing import Union, List, Dict, Any
+
+
 async def get_free_proxies():
     """获取免费代理列表"""
     proxy_api = "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all"
@@ -21,37 +25,35 @@ async def get_free_proxies():
         async with httpx.AsyncClient() as client:
             response = await client.get(proxy_api)
             if response.status_code == 200:
-                proxies = response.text.strip().split('\r\n')
+                proxies = response.text.strip().split("\r\n")
                 return [f"http://{proxy}" for proxy in proxies if proxy]
     except Exception as e:
         print(f"获取代理列表失败：{e}")
     return []
+
 
 async def fetch_with_proxy(url, headers, cookies):
     """按顺序使用代理进行请求"""
     proxies = await get_free_proxies()
     if not proxies:
         raise Exception("没有获取到可用的代理")
-    
+
     print(f"获取到 {len(proxies)} 个代理")
-    
+
     for i, proxy in enumerate(proxies, 1):
         print(f"\n尝试第 {i} 个代理：{proxy}")
         try:
             async with httpx.AsyncClient(
                 proxies={"http://": proxy, "https://": proxy},
                 timeout=30,
-                verify=False  # 关闭SSL验证
+                verify=False,  # 关闭SSL验证
             ) as client:
                 print(f"正在使用代理 {proxy} 请求URL：{url}")
                 response = await client.get(
-                    url,
-                    headers=headers,
-                    cookies=cookies,
-                    follow_redirects=True
+                    url, headers=headers, cookies=cookies, follow_redirects=True
                 )
                 print(f"代理 {proxy} 请求状态码：{response.status_code}")
-                
+
                 if response.status_code == 200:
                     print(f"代理 {proxy} 请求成功！")
                     return response
@@ -59,8 +61,9 @@ async def fetch_with_proxy(url, headers, cookies):
                     print(f"代理 {proxy} 请求失败，状态码：{response.status_code}")
         except Exception as e:
             print(f"代理 {proxy} 发生错误：{e}")
-    
+
     raise Exception("所有代理都尝试失败")
+
 
 def get_free_proxies_sync() -> List[str]:
     """同步获取免费代理列表"""
@@ -69,20 +72,23 @@ def get_free_proxies_sync() -> List[str]:
         with httpx.Client() as client:
             response = client.get(proxy_api)
             if response.status_code == 200:
-                proxies = response.text.strip().split('\r\n')
+                proxies = response.text.strip().split("\r\n")
                 return [f"http://{proxy}" for proxy in proxies if proxy]
     except Exception as e:
         print(f"获取代理列表失败：{e}")
     return []
 
-def fetch_with_proxy_sync(url: str, headers: Dict[str, str], cookies: Dict[str, str]) -> httpx.Response:
+
+def fetch_with_proxy_sync(
+    url: str, headers: Dict[str, str], cookies: Dict[str, str]
+) -> httpx.Response:
     """同步版本的代理请求函数"""
     proxies = get_free_proxies_sync()
     if not proxies:
         raise Exception("没有获取到可用的代理")
-    
+
     print(f"获取到 {len(proxies)} 个代理")
-    
+
     for i, proxy in enumerate(proxies, 1):
         print(f"\n尝试第 {i} 个代理：{proxy}")
         try:
@@ -90,17 +96,14 @@ def fetch_with_proxy_sync(url: str, headers: Dict[str, str], cookies: Dict[str, 
             with httpx.Client(
                 proxies={"http://": proxy, "https://": proxy},
                 timeout=30,
-                transport=transport
+                transport=transport,
             ) as client:
                 print(f"正在使用代理 {proxy} 请求URL：{url}")
                 response = client.get(
-                    url,
-                    headers=headers,
-                    cookies=cookies,
-                    follow_redirects=True
+                    url, headers=headers, cookies=cookies, follow_redirects=True
                 )
                 print(f"代理 {proxy} 请求状态码：{response.status_code}")
-                
+
                 if response.status_code == 200:
                     print(f"代理 {proxy} 请求成功！")
                     return response
@@ -110,8 +113,9 @@ def fetch_with_proxy_sync(url: str, headers: Dict[str, str], cookies: Dict[str, 
         except Exception as e:
             print(f"代理 {proxy} 发生错误：{e}")
             time.sleep(1)
-    
+
     raise Exception("所有代理都尝试失败")
+
 
 class InitialDataType(Enum):
     """
@@ -128,12 +132,13 @@ async def get_initial_state(
     """异步获取初始化信息"""
     print("当前 cookies:", credential.get_cookies())
     try:
-        headers={"User-Agent": "Mozilla/5.0"}
+        headers = {"User-Agent": "Mozilla/5.0"}
         response = await fetch_with_proxy(url, headers, credential.get_cookies())
         content = response.text
     except Exception as e:
         raise e
     return _process_content(content)
+
 
 def get_initial_state_sync(
     url: str, credential: Credential = Credential()
@@ -141,12 +146,13 @@ def get_initial_state_sync(
     """同步获取初始化信息"""
     print("当前 cookies:", credential.get_cookies())
     try:
-        headers={"User-Agent": "Mozilla/5.0"}
+        headers = {"User-Agent": "Mozilla/5.0"}
         response = fetch_with_proxy_sync(url, headers, credential.get_cookies())
         content = response.text
     except Exception as e:
         raise e
     return _process_content(content)
+
 
 def _process_content(content: str) -> Union[dict, InitialDataType]:
     """处理响应内容的通用函数"""
