@@ -13,7 +13,55 @@ from ..exceptions import *
 from .short import get_real_url
 from .credential import Credential
 from .network import get_session
+import httpx
 
+async def get_free_proxies():
+    """获取免费代理列表"""
+    proxy_api = "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(proxy_api)
+            if response.status_code == 200:
+                proxies = response.text.strip().split('\r\n')
+                return [f"http://{proxy}" for proxy in proxies if proxy]
+    except Exception as e:
+        print(f"获取代理列表失败：{e}")
+    return []
+
+async def fetch_with_proxy(url, headers, cookies):
+    """按顺序使用代理进行请求"""
+    proxies = await get_free_proxies()
+    if not proxies:
+        raise Exception("没有获取到可用的代理")
+    
+    print(f"获取到 {len(proxies)} 个代理")
+    
+    for i, proxy in enumerate(proxies, 1):
+        print(f"\n尝试第 {i} 个代理：{proxy}")
+        try:
+            async with httpx.AsyncClient(
+                proxies={"http://": proxy, "https://": proxy},
+                timeout=30,
+                verify=False  # 关闭SSL验证
+            ) as client:
+                print(f"正在使用代理 {proxy} 请求URL：{url}")
+                response = await client.get(
+                    url,
+                    headers=headers,
+                    cookies=cookies,
+                    follow_redirects=True
+                )
+                print(f"代理 {proxy} 请求状态码：{response.status_code}")
+                
+                if response.status_code == 200:
+                    print(f"代理 {proxy} 请求成功！")
+                    return response
+                else:
+                    print(f"代理 {proxy} 请求失败，状态码：{response.status_code}")
+        except Exception as e:
+            print(f"代理 {proxy} 发生错误：{e}")
+    
+    raise Exception("所有代理都尝试失败")
 
 class InitialDataType(Enum):
     """
@@ -36,17 +84,12 @@ async def get_initial_state(
         credential (Credential, optional): 用户凭证. Defaults to Credential().
     """
     try:
-        session = get_session()
-        resp = await session.get(
-            url,
-            cookies=credential.get_cookies(),
-            headers={"User-Agent": "Mozilla/5.0"},
-            follow_redirects=True,
-        )
+        headers={"User-Agent": "Mozilla/5.0"}
+        response = await fetch_with_proxy(url, headers, credential.get_cookies())
+        content = response.text
     except Exception as e:
         raise e
     else:
-        content = resp.text
         pattern = re.compile(r"window.__INITIAL_STATE__=(\{.*?\});")
         match = re.search(pattern, content)
         if match is None:
@@ -70,33 +113,22 @@ async def get_initial_state(
 def get_initial_state_sync(
     url: str, credential: Credential = Credential()
 ) -> Union[dict, InitialDataType]:
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Cache-Control": "max-age=0",
-        "Sec-Ch-Ua": '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1"
-    }
+    print(credential.get_cookies())
+    """
+    同步获取初始化信息
+
+    Args:
+        url (str): 链接
+
+        credential (Credential, optional): 用户凭证. Defaults to Credential().
+    """
     try:
         resp = httpx.get(
             url,
             cookies=credential.get_cookies(),
-            headers=headers,
+            headers={"User-Agent": "Mozilla/5.0"},
             follow_redirects=True,
-            timeout=30
         )
-        if resp.status_code == 412:
-            raise ApiException("请求被拦截，疑似触发反爬虫机制")
-        resp.raise_for_status()
     except Exception as e:
         raise e
     else:
