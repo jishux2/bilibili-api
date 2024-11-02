@@ -70,22 +70,33 @@ async def get_initial_state(
 def get_initial_state_sync(
     url: str, credential: Credential = Credential()
 ) -> Union[dict, InitialDataType]:
-    print(credential.get_cookies())
-    """
-    同步获取初始化信息
-
-    Args:
-        url (str): 链接
-
-        credential (Credential, optional): 用户凭证. Defaults to Credential().
-    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Cache-Control": "max-age=0",
+        "Sec-Ch-Ua": '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1"
+    }
     try:
         resp = httpx.get(
             url,
             cookies=credential.get_cookies(),
-            headers={"User-Agent": "Mozilla/5.0"},
+            headers=headers,
             follow_redirects=True,
+            timeout=30
         )
+        if resp.status_code == 412:
+            raise ApiException("请求被拦截，疑似触发反爬虫机制")
+        resp.raise_for_status()
     except Exception as e:
         raise e
     else:
