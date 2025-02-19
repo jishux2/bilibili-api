@@ -29,3 +29,6 @@ virtualenv/
 # Doc Generater
 .doc_cache/
 .mypy_cache/
+data/
+article_*.json
+comments*.*
