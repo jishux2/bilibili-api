@@ -164,3 +164,12 @@ class Opus:
         meta_yaml = yaml.safe_dump(self.__info, allow_unicode=True)
         content = f"---\n{meta_yaml}\n---\n\n{markdown}"
         return content
+
+    async def get_rid(self) -> int:
+        """
+        获取 rid，以传入 `comment.get_comments_lazy` 等函数 oid 参数对评论区进行操作
+
+        Returns:
+            int: rid
+        """
+        return int((await self.get_info())["item"]["basic"]["rid_str"])
